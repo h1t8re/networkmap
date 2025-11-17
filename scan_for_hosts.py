@@ -64,12 +64,15 @@ class Iface:
 			print(ip, end="\n")
 		print("\n")	
 
-def runcommand(command=[], timeout="5"):
-    proc = subprocess.Popen(command, bufsize=0, stdout=subprocess.PIPE)
-    std_out, std_err = proc.communicate()
-    std_out = std_out.strip()
-    proc.kill()
-    return std_out, std_err
+def runcommand(command0=[], command1=[], timeout="5"):
+    proc0 = subprocess.Popen(command0, bufsize=0, stdout=subprocess.PIPE)
+    std_out0, std_err0 = proc0.communicate()
+    std_out0 = std_out0.strip()
+    proc0.kill()
+    proc1 = subprocess.Popen(command1, bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE)    
+    std_out1, std_err1 = proc1.communicate(input=b''+std_out0)
+    proc1.kill()
+    return std_out1, std_err1
 
 def scan_for_host(iface=None):
 	iface.print_iface()
@@ -82,7 +85,7 @@ def scan_for_host(iface=None):
 	for i in range(1, 255):
 		ip = network + str(i)
 		print("Scanning "+ip+" ... ", end="")
-		std_out, std_err = runcommand(["ping", "-c", "1", "-w", "4", ip])
+		std_out, std_err = runcommand(["ping", "-c", "1", "-w", "4", ip], [])
 		if b'1 received' in std_out:
 			print("up", end="\n")
 		else:
