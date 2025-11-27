@@ -80,7 +80,6 @@ def runcommand(command=[], input_data=b'', timeout="5"):
     return std_out, std_err
 
 def scan_for_hosts(iface=None):
-    iface.print_iface()
     default_ip = iface.get_default_ip()
     reply = None
     if not default_ip:
