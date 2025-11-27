@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 import threading
+import shutil
 
 def check_for_root():
 	print('\nVerification of admin rights...',end="")
@@ -10,14 +11,17 @@ def check_for_root():
 
 def install_binary(b=""):
 	check_for_root()
-	if not os.system('apt-get install python3-'+b)==0:
+	if not os.system('apt install '+b)==0:
 		sys.exit('\n\nInstallation error..')
 
 try: 
-	from scapy.all import *
+    from scapy.all import *
 except ImportError:
-	install_binary("scapy")
-	from scapy.all import *
+    install_binary("python3-scapy")
+    from scapy.all import *
+
+if not shutil.which("arp"):
+    install_binary("net-tools")
 
 class Iface:
 	number = 0
@@ -65,28 +69,42 @@ class Iface:
 		print("\n")	
 
 def runcommand(command=[], input_data=b'', timeout="5"):
-    proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    std_out, std_err = proc.communicate(input=b''+input_data)
-    std_out = std_out.strip()
+    try:
+        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        std_out, std_err = proc.communicate(input=b''+input_data)
+        std_out = std_out.strip()
+    except FileNotFoundError:
+        print("Error running command")
+        exit()
     proc.kill()
     return std_out, std_err
 
-def scan_for_host(iface=None):
-	iface.print_iface()
-	default_ip = iface.get_default_ip()
-	reply = None
-	if not default_ip:
-		return 0	
-	l = default_ip.split(".")[:-1]
-	network = l[0] + '.' + l[1] + '.' + l[2] + '.'
-	for i in range(1, 255):
-		ip = network + str(i)
-		print("Scanning "+ip+" ... ", end="")
-		std_out, std_err = runcommand(["ping", "-c", "1", "-w", "4", ip])
-		if b'1 received' in std_out:
-			print("up", end="\n")
-		else:
-			print("down", end="\n")	
+def scan_for_hosts(iface=None):
+    iface.print_iface()
+    default_ip = iface.get_default_ip()
+    reply = None
+    if not default_ip:
+        return 0	
+    l = default_ip.split(".")[:-1]
+    network = l[0] + '.' + l[1] + '.' + l[2] + '.'
+    for i in range(1, 255):
+        ip = network + str(i)
+        print("Scanning "+ip+" ... ", end="")
+        std_out, std_err = runcommand(["ping", "-c", "1", "-w", "4", ip])
+        if b'1 received' in std_out:
+            print("up", end=" ")
+            if ip == default_ip:
+                print("\n")
+                continue
+            stdout, stderr = runcommand(["arp", "-n", "-D", ip])
+            stdout = stdout.decode('utf-8')
+            lines = stdout.split("\n")
+            hwaddr = lines[1].split(" ")
+            hwaddr = [x for x in hwaddr if x != '']
+            print("with hwaddr ", end="")
+            print(hwaddr[2], end="\n")
+        else:
+            print("down", end="\n")	
 
 def main():
 	interface_number = 1
@@ -112,7 +130,7 @@ def main():
 	iface.set_default_ip(interface_config.ip)
 	print(" done", end="\n")
 	iface.print_iface()
-	up_ips = scan_for_host(iface)
+	up_ips = scan_for_hosts(iface)
 	
 	return 0
 
